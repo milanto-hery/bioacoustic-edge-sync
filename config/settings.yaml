@@ -1,9 +1,25 @@
 recording:
-  chunk_duration_seconds: 600   # 10 minutes
+  chunk_duration_seconds: 30   # 10 minutes
   sample_rate: 44100            # Default high-fidelity audio
   channels: 1                   # Mono recording
   local_storage_dir: "data_buffer" # Temporary buffer folder
 
 drive:
-  parent_folder_id: "Your_Google_Drive_Folder_ID_Here" # Replace with actual Google Drive Folder ID
+  parent_folder_id: "15McmOQ6t8U3tJapVNIEB8jzTHFqnRQ3F?usp=drive_link" # Replace with actual Google Drive Folder ID
   target_folder_name: "Bioacoustic_Field_Data"         # Subfolder created dynamically for uploads
+  
+#https://drive.google.com/drive/folders/15McmOQ6t8U3tJapVNIEB8jzTHFqnRQ3F?usp=drive_link
+
+# PyDrive Authentication Settings
+client_config_backend: file
+client_config_file: client_secrets.json
+
+save_credentials: True
+save_credentials_backend: file
+save_credentials_file: credentials.json
+
+get_refresh_token: True
+
+oauth_scope:
+  - https://www.googleapis.com/auth/drive
+  - https://www.googleapis.com/auth/drive.install

@@ -58,7 +58,7 @@ bioacoustic-edge-sync/
 Clone the repository and install dependencies:
 
 ```bash
-git clone https://github.com/yourusername/bioacoustic-edge-sync.git
+git clone https://github.com/milanto-hery/bioacoustic-edge-sync.git
 cd bioacoustic-edge-sync
 pip install -r requirements.txt
 ```
@@ -67,7 +67,8 @@ pip install -r requirements.txt
 1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
 2. Create a Project and enable the **Google Drive API**.
 3. Create **OAuth 2.0 Client IDs** and download the `client_secrets.json` file.
-4. Place the `client_secrets.json` file in the root directory of the project.
+4. Place the `client_secrets.json` file in the `config/` directory of the project.
+5. Provide your configuration choices in `config/settings.yaml`.
 
 ### 4. Configuration
 Edit the `config/settings.yaml` file to match your requirements. 

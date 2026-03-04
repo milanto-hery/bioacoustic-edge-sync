@@ -6,10 +6,11 @@ import time
 
 def find_usb_device():
     """Finds and returns the name of the first available USB microphone."""
-    input_devices = sd.query_devices()
-    usb_devices = [device for device in input_devices if 'USB' in device['name']]
-    if usb_devices:
-        return usb_devices[0]['name']
+    devices = sd.query_devices()
+    # Ensure the device has input channels (is a microphone, not just a speaker)
+    usb_mics = [device for device in devices if 'USB' in device['name'] and device['max_input_channels'] > 0]
+    if usb_mics:
+        return usb_mics[0]['name']
     print("No USB mic device found!")
     return None
 
@@ -27,12 +28,14 @@ def record_chunk(filename: str, duration: int, sample_rate: int, channels: int =
 
     input_device_index = None
     for i in range(p.get_device_count()):
-        if p.get_device_info_by_index(i)["name"] == device:
+        info = p.get_device_info_by_index(i)
+        # Match device name and ensure it's an input device (microphone)
+        if info["name"] == device and info["maxInputChannels"] > 0:
             input_device_index = i
             break
 
     if input_device_index is None:
-        print(f"[Recorder] Device '{device}' is not found.")
+        print(f"[Recorder] Input device '{device}' is not found.")
         p.terminate()
         return False
 

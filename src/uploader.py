@@ -1,67 +1,62 @@
 from pydrive.auth import GoogleAuth
 from pydrive.drive import GoogleDrive
 import os
-import time
 
 def authenticate_drive() -> GoogleDrive:
     """Authenticates with Google Drive using PyDrive."""
-    gauth = GoogleAuth()
-    gauth.CommandLineAuth()
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    config_dir = os.path.abspath(os.path.join(script_dir, "..", "config"))
+    settings_file = os.path.join(config_dir, "settings.yaml")
+    
+    # Initialize GoogleAuth with the settings file
+    gauth = GoogleAuth(settings_file=settings_file)
+    
+    # Temporarily change directory to config to correctly resolve relative paths (client_secrets.json)
+    current_dir = os.getcwd()
+    os.chdir(config_dir)
+    try:
+        gauth.CommandLineAuth() 
+    finally:
+        os.chdir(current_dir)
+        
     return GoogleDrive(gauth)
 
-def get_or_create_folder(drive: GoogleDrive, folder_name: str, parent_folder_id: str = None) -> str:
-    """Gets the folder ID if it exists, otherwise creates it."""
-    query = f"title='{folder_name}' and mimeType='application/vnd.google-apps.folder'"
+def upload_file(drive, file_path, folder_id):
+    # Check if the file already exists in the folder
+    file_list = drive.ListFile({'q': "'%s' in parents and title='%s'" % (folder_id, os.path.basename(file_path))}).GetList()
+    if file_list:
+        print(f"File '{os.path.basename(file_path)}' already exists in the Google Drive folder. Skipping upload.")
+        return
+
+    # Upload the file if it doesn't exist
+    file_drive = drive.CreateFile({'title': os.path.basename(file_path), 'parents': [{'id': folder_id}]})
+    file_drive.SetContentFile(file_path)  # Set the content of the file
+    file_drive.Upload()
+    print(f"{file_path} uploaded successfully to Google Drive.")
+
+def create_folder_drive(drive, folder_name, parent_folder_id=None):
+    # Check if the folder already exists, if not create a new one
+    folder_list = drive.ListFile({'q': "title='%s' and mimeType='application/vnd.google-apps.folder'" % folder_name}).GetList()
+    if folder_list:
+        return folder_list[0]['id']  # Return the existing folder ID
+        
+    folder_drive = drive.CreateFile({'title': folder_name, 'mimeType': 'application/vnd.google-apps.folder'})
     if parent_folder_id:
-        query += f" and '{parent_folder_id}' in parents"
-    
-    # Retry block in case of network unavailability during folder fetch
-    for _ in range(3):
-        try:
-            folder_list = drive.ListFile({'q': query}).GetList()
-            if folder_list:
-                return folder_list[0]['id']
-                
-            folder_metadata = {'title': folder_name, 'mimeType': 'application/vnd.google-apps.folder'}
-            if parent_folder_id:
-                folder_metadata['parents'] = [{'id': parent_folder_id}]
-                
-            folder_drive = drive.CreateFile(folder_metadata)
-            folder_drive.Upload()
-            return folder_drive['id']
-        except Exception as e:
-            print(f"[DriveError] Error verifying drive folder: {e}. Retrying...")
-            time.sleep(5)
-    raise Exception("Could not verify or create Google Drive target folder.")
+        folder_drive['parents'] = [{'id': parent_folder_id}]
+    folder_drive.Upload()
+    return folder_drive['id']
 
-def upload_file_with_retry(drive: GoogleDrive, file_path: str, folder_id: str, max_retries: int = 5):
-    """Uploads a file with auto-reconnect on network failure logic."""
-    basename = os.path.basename(file_path)
-    
-    # Check if exists
-    try:
-        file_list = drive.ListFile({'q': f"'{folder_id}' in parents and title='{basename}'"}).GetList()
-        if file_list:
-            print(f"[Uploader] '{basename}' already exists in Drive. Skipping.")
-            return True
-    except Exception as e:
-        print(f"[Uploader] Error checking file existence: {e}")
+def save_files_to_drive(drive, local_folder, drive_folder_name, parent_folder_id):
+    # Create a folder inside the folder drive to store the data
+    folder_id = create_folder_drive(drive, drive_folder_name, parent_folder_id)
 
-    # Retry loop for Auto-reconnect / Cloud Redundancy
-    for attempt in range(1, max_retries + 1):
-        try:
-            print(f"[Uploader] Uploading '{basename}' (Attempt {attempt}/{max_retries})...")
-            file_drive = drive.CreateFile({'title': basename, 'parents': [{'id': folder_id}]})
-            file_drive.SetContentFile(file_path)
-            file_drive.Upload()
-            print(f"[Uploader] '{basename}' uploaded successfully.")
-            return True
-        except Exception as e:
-            print(f"[UploaderError] Upload failed: {e}")
-            if attempt < max_retries:
-                sleep_time = 5 * attempt
-                print(f"[Uploader] Network issue detected. Retrying in {sleep_time} seconds...")
-                time.sleep(sleep_time)
-            else:
-                print(f"[UploaderError] Max retries reached. File '{basename}' remains buffered locally.")
-                return False
+    # Iterate through files inside the local folder
+    for filename in os.listdir(local_folder):
+        file_path = os.path.join(local_folder, filename)
+        
+        # Check if the file exists before uploading
+        if os.path.isfile(file_path) and filename.endswith(".wav"):
+            upload_file(drive, file_path, folder_id)
+        else:
+            if not os.path.isfile(file_path):
+                print(f"Error: File {file_path} not found!")
